@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bird ID Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #e7f4ec;
+      text-align: center;
+      padding: 20px;
+    }
+    .game-box {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      display: inline-block;
+      width: 90%;
+      max-width: 600px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 16px;
+    }
+    .option-btn {
+      display: block;
+      width: 100%;
+      margin: 5px auto;
+    }
+    #bird-image-container {
+      margin-top: 10px;
+      display: none;
+    }
+    #bird-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="game-box">
+    <h1>Bird Identification Game</h1>
+    <p id="score">Total Score: 0</p>
+    <p id="clue">Click "Next Hint" to start!</p>
+    <audio id="audio-player" controls style="display:none;">
+      <source id="audio-source" type="audio/mpeg">
+      Your browser does not support the audio element.
+    </audio>
+    <div id="bird-image-container">
+      <img id="bird-image" src="" alt="Bird Image"/>
+    </div>
+    <button onclick="showNextHint()">Next Hint</button>
+    <button onclick="skipBird()">Skip</button>
+    <div id="options"></div>
+  </div>
+
+  <div id="ending-screen" style="display:none;">
+    <h2>Game Over!</h2>
+    <p id="final-score"></p>
+  </div>
+
+  <script>
+    const birds = [
+      { name: "American Goldfinch", audio: "https://raw.githubusercontent.com/TilP33j/bc2/main/American%20Goldfinch.mp3", image: "https://assets.onecompiler.app/43judgfh9/43k46trwm/American%20Goldfinch.png", clues: ["Small yellow bird often seen on thistles.", "Males are bright yellow with black wings in summer.", "Bounces through the air in flight.", "Distinctive 'po-ta-to-chip' call."] },
+      { name: "Brown-headed Cowbird", audio: "https://raw.githubusercontent.com/TilP33j/bc2/main/Brown-headed%20Cowbird.mp3", image: "https://assets.onecompiler.app/43judgfh9/43k46trwm/Brown-headed%20Cowbird.png", clues: ["Male has glossy black body and brown head.", "Known for laying eggs in other birds’ nests.", "Short tail and chunky build.", "Frequent visitor of feeders and open fields."] },
+      { name: "Blue Jay", audio: "https://raw.githubusercontent.com/TilP33j/bc2/main/Blue%20Jay.mp3", image: "https://assets.onecompiler.app/43judgfh9/43k46trwm/Blue%20Jay.png", clues: ["Bright blue and white bird with a noisy call.", "Black necklace across the throat.", "Clever and sometimes aggressive at feeders.", "Common in woods and backyards."] },
+      { name: "Tufted Titmouse", audio: "https://raw.githubusercontent.com/TilP33j/bc2/main/Tufted%20Titmouse.wav", image: "https://assets.onecompiler.app/43judgfh9/43k46trwm/Tufted%20Titmouse.png", clues: ["Gray bird with a pointed crest and black forehead.", "Found in woodlands and feeders.", "Quick, chickadee-like calls.", "Lively and acrobatic behavior."] },
+      { name: "Red-bellied Woodpecker", audio: "https://raw.githubusercontent.com/TilP33j/bc2/main/Red-bellied%20Woodpecker.mp3", image: "https://assets.onecompiler.app/43judgfh9/43k46trwm/Red-bellied%20Woodpecker.png", clues: ["Red head and nape with barred black-and-white back.", "Often heard drumming on trees.", "Lives in forests and suburbs.", "Name refers to faint reddish belly."] },
+      { name: "Chimney Swift", audio: "https://raw.githubusercontent.com/TilP33j/bc2/main/Chimney%20Swift.mp3", image: "https://assets.onecompiler.app/43judgfh9/43k46trwm/Chimney%20Swift.png", clues: ["Sleek bird with narrow wings and fast flight.", "Common around urban chimneys.", "Dark overall with cigar-shaped body.", "Gives chittering calls while flying."] },
+      { name: "Common Yellowthroat", audio: "https://raw.githubusercontent.com/TilP33j/bc2/main/Common%20Yellowthroat.mp3", image: "https://assets.onecompiler.app/43judgfh9/43k46trwm/Common%20Yellowthroat.jpg", clues: ["Small warbler with a black mask and yellow throat.", "Favors wet, shrubby habitats.", "Often sings 'witchety-witchety-witchety.'", "Skulks in low vegetation."] },
+      { name: "House Finch", audio: "https://raw.githubusercontent.com/TilP33j/bc2/main/House%20Finch.mp3", image: "https://assets.onecompiler.app/43judgfh9/43k46trwm/House%20Finch.png", clues: ["Males are reddish on head and chest.", "Common at feeders and in towns.", "Song is long and warbling.", "Females are streaky brown."] },
+      { name: "Common Raven", audio: "https://raw.githubusercontent.com/TilP33j/bc2/main/Common%20Raven.mp3", image: "https://assets.onecompiler.app/43judgfh9/43k46trwm/Common%20Raven.jpeg", clues: ["Large black bird with a thick beak.", "Makes deep, croaking calls.", "Soars with wedge-shaped tail.", "Often confused with crows."] },
+      { name: "Scarlet Tanager", audio: "https://raw.githubusercontent.com/TilP33j/bc2/main/Scarlet%20Tanager.wav", image: "https://assets.onecompiler.app/43judgfh9/43k46trwm/Scarlet%20Tanager.png", clues: ["Males are bright red with black wings.", "Females are yellowish-green.", "Found in forest canopies.", "Song sounds like a hoarse robin."] }
+    ];
+
+    let birdQueue = shuffle([...birds]);
+    let currentBird = {};
+    let clueIndex = 0;
+    let score = 0;
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function startNewBird() {
+      if (birdQueue.length === 0) {
+        document.querySelector(".game-box").style.display = "none";
+        document.getElementById("ending-screen").style.display = "block";
+        document.getElementById("final-score").innerText = "Your final score is: " + score;
+        return;
+      }
+
+      currentBird = birdQueue.pop();
+      clueIndex = 0;
+
+      document.getElementById("clue").innerText = "Click \"Next Hint\" to listen to the bird!";
+      document.getElementById("options").innerHTML = "";
+
+      const audio = document.getElementById("audio-player");
+      audio.style.display = "none";
+      document.getElementById("audio-source").src = "";
+      audio.load();
+
+      const img = document.getElementById("bird-image");
+      const imgContainer = document.getElementById("bird-image-container");
+      img.src = "";
+      imgContainer.style.display = "none";
+    }
+
+    function showNextHint() {
+      const audio = document.getElementById("audio-player");
+      const source = document.getElementById("audio-source");
+      const img = document.getElementById("bird-image");
+      const imgContainer = document.getElementById("bird-image-container");
+
+      if (clueIndex === 0) {
+        source.src = currentBird.audio;
+        audio.style.display = "block";
+        audio.load();
+        audio.play();
+        document.getElementById("clue").innerText = "Listen to the bird's call!";
+      } else if (clueIndex <= currentBird.clues.length) {
+        document.getElementById("clue").innerText = currentBird.clues[clueIndex - 1];
+      } else {
+        document.getElementById("clue").innerText = "Here's a picture of the bird:";
+        img.src = currentBird.image;
+        imgContainer.style.display = "block";
+      }
+      clueIndex++;
+      showOptions();
+    }
+
+    function showOptions() {
+      let allNames = birds.map(b => b.name);
+      let options = shuffle([currentBird.name, ...shuffle(allNames.filter(n => n !== currentBird.name)).slice(0, 3)]);
+      const container = document.getElementById("options");
+      container.innerHTML = "";
+      options.forEach(name => {
+        let btn = document.createElement("button");
+        btn.innerText = name;
+        btn.className = "option-btn";
+        btn.onclick = () => handleGuess(name);
+        container.appendChild(btn);
+      });
+    }
+
+    function handleGuess(guess) {
+      if (guess === currentBird.name) {
+        let points = 6 - clueIndex;
+        score += points;
+        alert("Correct! You earned " + points + " points. Total Score: " + score);
+      } else {
+        score -= 2;
+        alert("Incorrect. It was: " + currentBird.name + ". You lost 2 points.");
+      }
+      document.getElementById("score").innerText = "Total Score: " + score;
+      startNewBird();
+    }
+
+    function skipBird() {
+      alert("Skipped! The correct answer was: " + currentBird.name);
+      startNewBird();
+    }
+
+    startNewBird();
+  </script>
+</body>
+</html>
